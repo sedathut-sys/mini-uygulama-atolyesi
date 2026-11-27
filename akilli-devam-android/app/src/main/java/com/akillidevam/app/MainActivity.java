@@ -22,7 +22,7 @@ public class MainActivity extends Activity {
  ScrollView scroll=new ScrollView(this);
  LinearLayout col=new LinearLayout(this);col.setOrientation(LinearLayout.VERTICAL);col.setPadding(dp(24),dp(32),dp(24),dp(24));scroll.addView(col);setContentView(scroll);
  TextView title=text(col,"Akıllı Devam",30);title.setTextColor(Color.rgb(0,105,79));
- text(col,"Android • Deneysel sürüm 0.1",15);
+ text(col,"Android • Deneysel sürüm 0.2",15);
  text(col,"Yalnızca resmi ChatGPT uygulamasında çalışır. Başka uygulamaya geçmek otomasyonu durdurur. Bir sohbet açıkken kullanın; otomasyon sırasında başka sohbete geçmeyin.",16);
  status=text(col,"Hazır",18);
  text(col,"Bekleme süresi (10–120 saniye)",16);delay=number(col,"20");
