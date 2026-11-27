@@ -29,7 +29,9 @@ jobs:
           mkdir -p /tmp/akilli-tests
           javac -d /tmp/akilli-tests app/src/main/java/com/akillidevam/app/Decision.java tests/DecisionTest.java
           java -cp /tmp/akilli-tests com.akillidevam.app.DecisionTest
-      - name: Install Android SDK
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK packages
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
