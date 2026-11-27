@@ -1,0 +1,86 @@
+name: Akilli Devam v0.3 Kurulum Teshisi
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'akilli-devam-android-teshis/**'
+      - '.github/workflows/akilli-devam-android-teshis.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: akilli-devam-android-teshis
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+          cache-disabled: true
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;35.0.0'
+          log-accepted-android-sdk-licenses: false
+      - name: Build unsigned release
+        run: gradle --no-daemon :app:assembleRelease
+      - name: Sign and verify diagnostic APK
+        run: |
+          set -euo pipefail
+          KEY="$RUNNER_TEMP/akilli-teshis.p12"
+          trap 'rm -f "$KEY"' EXIT
+          KEYSTORE_PASSWORD="$(openssl rand -hex 24)"
+          echo "::add-mask::$KEYSTORE_PASSWORD"
+          export KEYSTORE_PASSWORD
+          keytool -genkeypair -storetype PKCS12 -keystore "$KEY" -storepass:env KEYSTORE_PASSWORD -alias akillitest -keyalg RSA -keysize 3072 -validity 3650 -dname "CN=Akilli Devam Diagnostic Test Release"
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          mkdir -p delivery
+          APK=delivery/Akilli-Devam-Android-v0.3-Teshis.apk
+          "$BT/zipalign" -f -v 4 app/build/outputs/apk/release/app-release-unsigned.apk "$RUNNER_TEMP/aligned.apk"
+          "$BT/apksigner" sign --ks "$KEY" --ks-key-alias akillitest --ks-pass env:KEYSTORE_PASSWORD --out "$APK" "$RUNNER_TEMP/aligned.apk"
+          "$BT/apksigner" verify --verbose --print-certs "$APK"
+          "$BT/zipalign" -c -v 4 "$APK"
+          "$BT/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/akilli-badging.txt"
+          grep -F "package: name='com.akillidevam.teshis' versionCode='3' versionName='0.3'" "$RUNNER_TEMP/akilli-badging.txt"
+          grep -F "targetSdkVersion:'36'" "$RUNNER_TEMP/akilli-badging.txt"
+          "$BT/aapt" dump permissions "$APK" | tee "$RUNNER_TEMP/akilli-permissions.txt"
+          "$BT/aapt" dump xmltree "$APK" AndroidManifest.xml | tee "$RUNNER_TEMP/akilli-manifest.txt"
+          if grep -E 'uses-permission|permission:|E: service|BIND_ACCESSIBILITY_SERVICE' "$RUNNER_TEMP/akilli-permissions.txt" "$RUNNER_TEMP/akilli-manifest.txt"; then echo "Unexpected permission or service"; exit 1; fi
+          echo "No requested permissions or services"
+          sha256sum "$APK"
+      - name: Enable KVM for emulator
+        run: |
+          test -e /dev/kvm
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-akilli-teshis-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 16 installation smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            adb shell getprop ro.build.version.sdk | grep -x 36
+            adb install akilli-devam-android-teshis/delivery/Akilli-Devam-Android-v0.3-Teshis.apk | tee /tmp/akilli-teshis-install.txt
+            grep -x Success /tmp/akilli-teshis-install.txt
+            adb shell pm path com.akillidevam.teshis
+            adb shell am start -W -n com.akillidevam.teshis/.MainActivity | tee /tmp/akilli-teshis-launch.txt
+            grep -F 'Status: ok' /tmp/akilli-teshis-launch.txt
+            adb shell pidof com.akillidevam.teshis
+      - name: Upload verified diagnostic APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Akilli-Devam-Android-v0.3-Teshis-APK
+          path: akilli-devam-android-teshis/delivery/Akilli-Devam-Android-v0.3-Teshis.apk
+          if-no-files-found: error
+          retention-days: 7
