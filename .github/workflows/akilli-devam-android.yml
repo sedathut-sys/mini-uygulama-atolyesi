@@ -1,0 +1,42 @@
+name: Akilli Devam Android APK
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'akilli-devam-android/**'
+      - '.github/workflows/akilli-devam-android.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: akilli-devam-android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+          cache-disabled: true
+      - name: Decision tests
+        run: |
+          mkdir -p /tmp/akilli-tests
+          javac -d /tmp/akilli-tests app/src/main/java/com/akillidevam/app/Decision.java tests/DecisionTest.java
+          java -cp /tmp/akilli-tests com.akillidevam.app.DecisionTest
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Build debug APK
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Akilli-Devam-Android-v0.1-APK
+          path: akilli-devam-android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
