@@ -56,7 +56,11 @@ jobs:
           grep -F 'android.permission.BIND_ACCESSIBILITY_SERVICE' "$RUNNER_TEMP/akilli-manifest.txt"
           grep -F 'DiagnosticService' "$RUNNER_TEMP/akilli-manifest.txt"
           test "$(grep -c 'E: service' "$RUNNER_TEMP/akilli-manifest.txt")" -eq 1
-          "$BT/aapt" dump xmltree "$APK" res/xml/diagnostic_service.xml | tee "$RUNNER_TEMP/akilli-service.txt"
+          # AAPT2 may shorten compiled resource paths. This minimal APK must have exactly one resource XML.
+          mapfile -t SERVICE_XMLS < <(unzip -Z1 "$APK" | grep -E '^res/.*\.xml$')
+          test "${#SERVICE_XMLS[@]}" -eq 1
+          "$BT/aapt" dump xmltree "$APK" "${SERVICE_XMLS[0]}" | tee "$RUNNER_TEMP/akilli-service.txt"
+          grep -F 'E: accessibility-service' "$RUNNER_TEMP/akilli-service.txt"
           grep -E 'canRetrieveWindowContent.*0x0$' "$RUNNER_TEMP/akilli-service.txt"
           grep -E 'canPerformGestures.*0x0$' "$RUNNER_TEMP/akilli-service.txt"
           echo "One diagnostic service; no requested permissions, content retrieval or gestures"
