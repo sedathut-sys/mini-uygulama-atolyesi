@@ -1,0 +1,8 @@
+plugins { id 'com.android.application' }
+android {
+ namespace 'com.akillidevam.teshis.v04'
+ compileSdk 36
+ defaultConfig { applicationId 'com.akillidevam.teshis.v04'; minSdk 26; targetSdk 36; versionCode 4; versionName '0.4' }
+ compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+ buildTypes { release { minifyEnabled false; debuggable false } }
+}
